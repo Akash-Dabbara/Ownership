@@ -85,7 +85,13 @@ def upgrade() -> None:
         "PENDING", "APPROVED", "REJECTED",
         name="new_user_request_status",
     )
-    new_user_request_status.create(op.get_bind())
+    
+    # Safely create enum type only if it does not already exist
+    op.execute(
+        """
+        DO $$ BEGIN             CREATE TYPE new_user_request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');         EXCEPTION             WHEN duplicate_object THEN null;         END $$;
+        """
+    )
 
     op.create_table(
         "new_user_requests",
@@ -119,7 +125,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_new_user_requests_status"), table_name="new_user_requests")
     op.drop_index(op.f("ix_new_user_requests_email"), table_name="new_user_requests")
     op.drop_table("new_user_requests")
-    sa.Enum(name="new_user_request_status").drop(op.get_bind())
+    sa.Enum(name="new_user_request_status").drop(op.get_bind(), checkfirst=True)
 
     op.drop_index(op.f("ix_access_requests_file_id"), table_name="access_requests")
     op.drop_constraint("fk_access_requests_file_id", "access_requests", type_="foreignkey")
