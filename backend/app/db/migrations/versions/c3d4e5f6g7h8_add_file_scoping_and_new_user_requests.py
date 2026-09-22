@@ -78,19 +78,26 @@ def upgrade() -> None:
         op.f("ix_access_requests_file_id"), "access_requests", ["file_id"]
     )
 
-    # --------------------------------------------------------
+# --------------------------------------------------------
     # NEW USER REQUESTS (no account yet — public submission)
     # --------------------------------------------------------
+    
+    # Safely create enum type in Postgres if it doesn't already exist
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE new_user_request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+
+    # Tell SQLAlchemy NOT to try to create the type again when building the table
     new_user_request_status = sa.Enum(
         "PENDING", "APPROVED", "REJECTED",
         name="new_user_request_status",
-    )
-    
-    # Safely create enum type only if it does not already exist
-    op.execute(
-        """
-        DO $$ BEGIN             CREATE TYPE new_user_request_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');         EXCEPTION             WHEN duplicate_object THEN null;         END $$;
-        """
+        create_type=False,
     )
 
     op.create_table(
