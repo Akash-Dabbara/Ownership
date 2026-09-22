@@ -1,0 +1,33 @@
+/* ===== Fixed/sticky title banner — append to App.css ===== */
+
+/* Pins the banner to the top of every screen that uses it,
+   and stops it from ever moving as content above/below changes. */
+.title-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+}
+
+/* Every page that renders a .title-banner as its first child
+   must be a top-to-bottom flex column so the banner always
+   sits at the very top and the rest of the content flows
+   beneath it in a fixed, predictable order. */
+.login-page,
+.role-select-page,
+.workspace-form-page,
+.datasource-setup-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Content area below the banner on the login screen,
+   centered independently of the banner itself. */
+.login-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
