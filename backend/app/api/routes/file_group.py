@@ -531,7 +531,7 @@ def list_files_route(
 # PREVIEW FILE DATA
 # ============================================================
 
-ALLOWED_PREVIEW_LIMITS = {100, 150, 200, 500, 1000}
+ALLOWED_PREVIEW_LIMITS = {100, 150, 200, 500, 1000, 2000, 5000, 10000}
 
 
 @router.get("/{file_group_id}/files/{file_id}/preview")
@@ -539,7 +539,7 @@ def preview_file_route(
     workspace_id: UUID,
     file_group_id: UUID,
     file_id: UUID,
-    limit: int = 100,
+    limit: int = 1000,  # Increased default preview limit for a fuller screen view
     current_user: User = Depends(require_any_authenticated_user),
     db: Session = Depends(get_db),
 ):
@@ -562,10 +562,10 @@ def preview_file_route(
             detail="File was not found.",
         )
 
-    safe_limit = limit if limit in ALLOWED_PREVIEW_LIMITS else 100
+    # Allow custom limits up to 10,000 or fallback to max allowed
+    safe_limit = limit if limit in ALLOWED_PREVIEW_LIMITS else (10000 if limit > 1000 else 100)
 
-    # Credential-less sources (URL / Local File): read directly,
-    # no connector involved.
+    # Credential-less sources (URL / Local File)
     if file_group.data_source_credential_id is None:
         if not file_record.source_path:
             raise HTTPException(
@@ -613,7 +613,6 @@ def preview_file_route(
         "rows": preview.get("rows", []),
         "limit": safe_limit,
     }
-
 
 # ============================================================
 # RUN ANONYMIZATION
