@@ -36,25 +36,25 @@ app = FastAPI(
 )
 
 
-# Local development origins are always allowed. For a deployed
-# frontend (for example on Vercel), set CORS_ORIGINS on the backend
-# host to a comma-separated list, such as:
-#   CORS_ORIGINS=https://your-app.vercel.app
-DEFAULT_ORIGINS = [
+# Allowed origins for development and production (including Vercel deployment)
+origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://ownership-omega.vercel.app",
 ]
 
-EXTRA_ORIGINS = [
+# Optional dynamic origins via environment variable comma-separated list
+extra_origins = [
     origin.strip()
     for origin in os.environ.get("CORS_ORIGINS", "").split(",")
     if origin.strip()
 ]
+origins.extend(extra_origins)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=DEFAULT_ORIGINS + EXTRA_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
