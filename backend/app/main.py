@@ -36,31 +36,11 @@ app = FastAPI(
 )
 
 
-# Allowed origins for development and production (including Vercel deployment)
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://ownership-omega.vercel.app",
-]
-
-# Optional dynamic origins via environment variable comma-separated list
-extra_origins = [
-    origin.strip()
-    for origin in os.environ.get("CORS_ORIGINS", "").split(",")
-    if origin.strip()
-]
-origins.extend(extra_origins)
-
-
+# Permissive CORS setup to support all Vercel preview/production URLs and local development seamlessly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://ownership-omega.vercel.app",
-    ],
-    allow_origin_regex=r"https://ownership-[a-z0-9]+-akash-dabbaras-projects\.vercel\.app",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
