@@ -52,9 +52,15 @@ EXTRA_ORIGINS = [
 ]
 
 
+# Replace your existing app.add_middleware(CORSMiddleware, ...) block with this:
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=DEFAULT_ORIGINS + EXTRA_ORIGINS,
+    allow_origins=[
+        "https://ownership-kum8ujcqs-akash-dabbaras-projects.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
