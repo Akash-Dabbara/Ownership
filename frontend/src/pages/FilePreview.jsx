@@ -36,9 +36,6 @@ const CASING_OPTIONS = [
   { value: "Title Case", label: "Title Case" },
 ];
 
-// Height of the TitleBanner (padding 20px top/bottom + ~40px content).
-const BANNER_HEIGHT = "90px";
-
 export default function FilePreview() {
   const navigate = useNavigate();
   const { workspaceId, fileGroupId, fileId } = useParams();
@@ -168,8 +165,6 @@ export default function FilePreview() {
     setIsAnonymizing(true);
 
     try {
-      // Convert columnConfigs {col: {algorithm, casing, consistency}}
-      // into the backend's expected column_rules shape.
       const columnRules = {};
       Object.entries(columnConfigs).forEach(([col, config]) => {
         columnRules[col] = {
@@ -219,8 +214,6 @@ export default function FilePreview() {
 
     try {
       if (isNoCredentialSource) {
-        // Backend returns a CSV file stream — the browser saves
-        // it directly to the user's Downloads folder.
         const result = await exportFileDownload(
           workspaceId,
           fileGroupId,
@@ -403,8 +396,6 @@ export default function FilePreview() {
         }
       />
 
-      {/* Fixed-height row below the banner. This row itself never
-          scrolls — its two children each scroll independently. */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {hasConfig && (
           <div
@@ -555,108 +546,6 @@ export default function FilePreview() {
                             </span>
                           )}{" "}
                           <span style={{ fontSize: "11px", opacity: 0.7 }}>▾</span>
-
-                          {activeConfigColumn === col && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: "absolute",
-                                top: "100%",
-                                left: 0,
-                                marginTop: "4px",
-                                background: "#ffffff",
-                                color: "#111827",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "10px",
-                                boxShadow: "0 12px 24px rgba(17,24,39,0.15)",
-                                padding: "16px",
-                                width: "240px",
-                                zIndex: 50,
-                                fontWeight: 400,
-                                whiteSpace: "normal",
-                              }}
-                            >
-                              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>
-                                Algorithm
-                              </label>
-                              <select
-                                value={draftAlgorithm}
-                                onChange={(e) => setDraftAlgorithm(e.target.value)}
-                                style={{ width: "100%", height: "36px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                              >
-                                {ALGORITHM_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-
-                              {TEXT_ALGORITHMS.has(draftAlgorithm) && (
-                                <>
-                                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>
-                                    Casing
-                                  </label>
-                                  <select
-                                    value={draftCasing}
-                                    onChange={(e) => setDraftCasing(e.target.value)}
-                                    style={{ width: "100%", height: "36px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                                  >
-                                    {CASING_OPTIONS.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </>
-                              )}
-
-                              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", marginBottom: "14px" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={draftConsistency}
-                                  onChange={(e) => setDraftConsistency(e.target.checked)}
-                                />
-                                Consistency
-                              </label>
-
-                              <div style={{ display: "flex", gap: "8px" }}>
-                                <button
-                                  type="button"
-                                  onClick={handleSaveColumnConfig}
-                                  style={{
-                                    flex: 1,
-                                    height: "32px",
-                                    fontSize: "13px",
-                                    fontWeight: 600,
-                                    color: "#fff",
-                                    background: "#111827",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  Apply
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveConfigColumn(null)}
-                                  style={{
-                                    flex: 1,
-                                    height: "32px",
-                                    fontSize: "13px",
-                                    fontWeight: 600,
-                                    color: "#374151",
-                                    background: "#fff",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "6px",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </th>
                       );
                     })}
@@ -685,6 +574,119 @@ export default function FilePreview() {
           )}
         </div>
       </div>
+
+      {/* Column Configuration Modal Overlay */}
+      {activeConfigColumn && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(17, 24, 39, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+          }}
+          onClick={() => setActiveConfigColumn(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "380px",
+              background: "#ffffff",
+              borderRadius: "16px",
+              padding: "24px",
+              boxShadow: "0 20px 48px rgba(17, 24, 39, 0.2)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: 700, color: "#111827" }}>
+              Configure Column: {activeConfigColumn}
+            </h3>
+
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px", color: "#374151" }}>
+              Algorithm
+            </label>
+            <select
+              value={draftAlgorithm}
+              onChange={(e) => setDraftAlgorithm(e.target.value)}
+              style={{ width: "100%", height: "40px", marginBottom: "16px", borderRadius: "8px", border: "1px solid #d1d5db", padding: "0 8px" }}
+            >
+              {ALGORITHM_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {TEXT_ALGORITHMS.has(draftAlgorithm) && (
+              <>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px", color: "#374151" }}>
+                  Casing
+                </label>
+                <select
+                  value={draftCasing}
+                  onChange={(e) => setDraftCasing(e.target.value)}
+                  style={{ width: "100%", height: "40px", marginBottom: "16px", borderRadius: "8px", border: "1px solid #d1d5db", padding: "0 8px" }}
+                >
+                  {CASING_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", marginBottom: "20px", color: "#374151", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={draftConsistency}
+                onChange={(e) => setDraftConsistency(e.target.checked)}
+                style={{ width: "16px", height: "16px" }}
+              />
+              Consistency
+            </label>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                type="button"
+                onClick={() => setActiveConfigColumn(null)}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveColumnConfig}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#fff",
+                  background: "#111827",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExportSuccess && (
         <div
