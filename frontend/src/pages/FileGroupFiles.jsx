@@ -16,6 +16,7 @@ export default function FileGroupFiles() {
   const [workspace, setWorkspace] = useState(null);
   const [fileGroup, setFileGroup] = useState(null);
   const [files, setFiles] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -51,6 +52,16 @@ export default function FileGroupFiles() {
       `/workspaces/${workspaceId}/file-groups/${fileGroupId}/files/${file.file_id}/preview`
     );
   }
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredFiles = files.filter(
+    (file) =>
+      (file.display_name || "").toLowerCase().includes(normalizedSearch) ||
+      (file.table_name || "").toLowerCase().includes(normalizedSearch) ||
+      (file.database_name || "").toLowerCase().includes(normalizedSearch) ||
+      (file.schema_name || "").toLowerCase().includes(normalizedSearch) ||
+      (file.source_path || "").toLowerCase().includes(normalizedSearch)
+  );
 
   if (isLoading) return <div className="loading-state">Loading file group...</div>;
   if (errorMessage) return <div className="error-state">{errorMessage}</div>;
@@ -123,16 +134,34 @@ export default function FileGroupFiles() {
       />
 
       <div style={{ padding: "32px", maxWidth: "1000px", margin: "0 auto" }}>
-        <h2 style={{ marginTop: 0 }}>Imported Data</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
+          <h2 style={{ margin: 0, fontSize: "20px", color: "#111827" }}>Imported Data</h2>
+          <input
+            type="text"
+            placeholder="🔍 Search files or tables..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              padding: "10px 16px",
+              width: "300px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              outline: "none",
+              background: "#fff",
+            }}
+          />
+        </div>
 
         {files.length === 0 ? (
           <p>
             No data has been imported into this file group yet.
             {isAdminOrOwner && ' Click "+ Import Data" above to bring in a table or file.'}
           </p>
+        ) : filteredFiles.length === 0 ? (
+          <p style={{ color: "#6b7280" }}>No files matching your search.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {files.map((file) => (
+            {filteredFiles.map((file) => (
               <div
                 key={file.file_id}
                 onClick={() => handleOpenFile(file)}

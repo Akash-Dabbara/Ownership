@@ -145,6 +145,7 @@ export default function WorkspaceDetails() {
 
   const [workspace, setWorkspace] = useState(null);
   const [fileGroups, setFileGroups] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingFileGroup, setEditingFileGroup] = useState(null);
   const [groupName, setGroupName] = useState("");
@@ -255,6 +256,13 @@ export default function WorkspaceDetails() {
     openEditModal(fileGroup);
   }
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredFileGroups = fileGroups.filter(
+    (fg) =>
+      (fg.name || "").toLowerCase().includes(normalizedSearch) ||
+      (fg.description || "").toLowerCase().includes(normalizedSearch)
+  );
+
   if (isLoading) return <div className="loading-state">Loading workspace details...</div>;
   if (errorMessage) return <div className="error-state">{errorMessage}</div>;
 
@@ -362,8 +370,28 @@ export default function WorkspaceDetails() {
       )}
 
       <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
+          <h2 style={{ margin: 0, fontSize: "20px", color: "#111827" }}>File Groups</h2>
+          <input
+            type="text"
+            placeholder="🔍 Search file groups..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              padding: "10px 16px",
+              width: "300px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              outline: "none",
+              background: "#fff",
+            }}
+          />
+        </div>
+
         {fileGroups.length === 0 ? (
           <p>No file groups available in this workspace.</p>
+        ) : filteredFileGroups.length === 0 ? (
+          <p style={{ color: "#6b7280" }}>No file groups matching your search.</p>
         ) : (
           <div
             style={{
@@ -372,7 +400,7 @@ export default function WorkspaceDetails() {
               gap: "20px",
             }}
           >
-            {fileGroups.map((fg) => {
+            {filteredFileGroups.map((fg) => {
               const isHovered = hoveredCardId === fg.file_group_id;
               return (
                 <div
