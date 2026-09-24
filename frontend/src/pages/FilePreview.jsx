@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { getWorkspace, getFileGroup, previewFileData, anonymizeFileData, exportFileData, exportFileDownload } from "../api/api";
 import { getAuthSession } from "../api/auth";
@@ -36,6 +37,13 @@ const CASING_OPTIONS = [
   { value: "Title Case", label: "Title Case" },
 ];
 
+// Height of the TitleBanner (padding 20px top/bottom + ~40px content).
+const BANNER_HEIGHT = "90px";
+
+// Fixed width of the column-config popover, used both for its
+// inline style and for keeping it inside the viewport horizontally.
+const POPOVER_WIDTH = 240;
+
 export default function FilePreview() {
   const navigate = useNavigate();
   const { workspaceId, fileGroupId, fileId } = useParams();
@@ -52,6 +60,11 @@ export default function FilePreview() {
 
   // Column configuration (Rule Registry)
   const [activeConfigColumn, setActiveConfigColumn] = useState(null);
+  // Screen position for the popover, captured from the clicked
+  // header's own position at the moment it's opened. Rendered via
+  // a portal (see below), so this is real fixed-position screen
+  // coordinates, not a position relative to any scrolling ancestor.
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const [columnConfigs, setColumnConfigs] = useState({});
   // Draft values while a column's popover is open
   const [draftAlgorithm, setDraftAlgorithm] = useState("");
@@ -79,6 +92,28 @@ export default function FilePreview() {
     loadPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowLimit, fileId]);
+
+  // Close the popover if the table area is scrolled or the window
+  // is resized, rather than letting it drift away from the header
+  // it's supposed to belong to (it no longer moves with the table
+  // now that it's a portal, by design — see handleOpenColumnConfig).
+  useEffect(() => {
+    if (activeConfigColumn === null) {
+      return undefined;
+    }
+
+    function closePopover() {
+      setActiveConfigColumn(null);
+    }
+
+    window.addEventListener("resize", closePopover);
+    window.addEventListener("scroll", closePopover, true);
+
+    return () => {
+      window.removeEventListener("resize", closePopover);
+      window.removeEventListener("scroll", closePopover, true);
+    };
+  }, [activeConfigColumn]);
 
   async function loadContext() {
     try {
@@ -118,11 +153,27 @@ export default function FilePreview() {
     }
   }
 
-  function handleOpenColumnConfig(column) {
+  function handleOpenColumnConfig(column, event) {
     const existing = columnConfigs[column];
     setDraftAlgorithm(existing?.algorithm || "");
     setDraftCasing(existing?.casing || "ORIGINAL");
     setDraftConsistency(existing?.consistency || false);
+
+    // Compute the popover's screen position from the clicked
+    // header's own bounding box, then clamp it so it can never
+    // render partly off-screen (e.g. a header near the right edge
+    // of a narrow table).
+    const headerRect = event.currentTarget.getBoundingClientRect();
+
+    const rawLeft = headerRect.left;
+    const maxLeft = window.innerWidth - POPOVER_WIDTH - 16;
+    const clampedLeft = Math.max(16, Math.min(rawLeft, maxLeft));
+
+    setPopoverPosition({
+      top: headerRect.bottom + 6,
+      left: clampedLeft,
+    });
+
     setActiveConfigColumn(column);
   }
 
@@ -165,6 +216,8 @@ export default function FilePreview() {
     setIsAnonymizing(true);
 
     try {
+      // Convert columnConfigs {col: {algorithm, casing, consistency}}
+      // into the backend's expected column_rules shape.
       const columnRules = {};
       Object.entries(columnConfigs).forEach(([col, config]) => {
         columnRules[col] = {
@@ -214,6 +267,8 @@ export default function FilePreview() {
 
     try {
       if (isNoCredentialSource) {
+        // Backend returns a CSV file stream — the browser saves
+        // it directly to the user's Downloads folder.
         const result = await exportFileDownload(
           workspaceId,
           fileGroupId,
@@ -396,6 +451,8 @@ export default function FilePreview() {
         }
       />
 
+      {/* Fixed-height row below the banner. This row itself never
+          scrolls — its two children each scroll independently. */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {hasConfig && (
           <div
@@ -526,7 +583,7 @@ export default function FilePreview() {
                       return (
                         <th
                           key={col}
-                          onClick={() => handleOpenColumnConfig(col)}
+                          onClick={(e) => handleOpenColumnConfig(col, e)}
                           style={{
                             textAlign: "left",
                             padding: "9px 14px",
@@ -536,7 +593,6 @@ export default function FilePreview() {
                             whiteSpace: "nowrap",
                             cursor: "pointer",
                             userSelect: "none",
-                            position: "relative",
                           }}
                         >
                           {col}
@@ -575,42 +631,42 @@ export default function FilePreview() {
         </div>
       </div>
 
-      {/* Column Configuration Modal Overlay */}
-      {activeConfigColumn && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(17, 24, 39, 0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 3000,
-          }}
-          onClick={() => setActiveConfigColumn(null)}
-        >
+      {/* Column-config popover, rendered via a portal straight into
+          document.body. This is the fix for the popover getting
+          clipped by the table's scrolling container when the table
+          is small: an absolutely-positioned descendant of an
+          overflow:auto element gets clipped to that element's
+          visible area, no matter how high its z-index is. Moving it
+          outside that DOM subtree entirely — via createPortal — and
+          positioning it with `fixed` screen coordinates computed in
+          handleOpenColumnConfig avoids that clipping altogether,
+          regardless of the table's size. */}
+      {activeConfigColumn &&
+        createPortal(
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "100%",
-              maxWidth: "380px",
+              position: "fixed",
+              top: popoverPosition.top,
+              left: popoverPosition.left,
               background: "#ffffff",
-              borderRadius: "16px",
-              padding: "24px",
-              boxShadow: "0 20px 48px rgba(17, 24, 39, 0.2)",
+              color: "#111827",
+              border: "1px solid #d1d5db",
+              borderRadius: "10px",
+              boxShadow: "0 12px 24px rgba(17,24,39,0.15)",
+              padding: "16px",
+              width: `${POPOVER_WIDTH}px`,
+              zIndex: 4000,
+              fontWeight: 400,
             }}
           >
-            <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: 700, color: "#111827" }}>
-              Configure Column: {activeConfigColumn}
-            </h3>
-
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px", color: "#374151" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>
               Algorithm
             </label>
             <select
               value={draftAlgorithm}
               onChange={(e) => setDraftAlgorithm(e.target.value)}
-              style={{ width: "100%", height: "40px", marginBottom: "16px", borderRadius: "8px", border: "1px solid #d1d5db", padding: "0 8px" }}
+              style={{ width: "100%", height: "36px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #d1d5db" }}
             >
               {ALGORITHM_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -621,13 +677,13 @@ export default function FilePreview() {
 
             {TEXT_ALGORITHMS.has(draftAlgorithm) && (
               <>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px", color: "#374151" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>
                   Casing
                 </label>
                 <select
                   value={draftCasing}
                   onChange={(e) => setDraftCasing(e.target.value)}
-                  style={{ width: "100%", height: "40px", marginBottom: "16px", borderRadius: "8px", border: "1px solid #d1d5db", padding: "0 8px" }}
+                  style={{ width: "100%", height: "36px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #d1d5db" }}
                 >
                   {CASING_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -638,55 +694,54 @@ export default function FilePreview() {
               </>
             )}
 
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", marginBottom: "20px", color: "#374151", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", marginBottom: "14px" }}>
               <input
                 type="checkbox"
                 checked={draftConsistency}
                 onChange={(e) => setDraftConsistency(e.target.checked)}
-                style={{ width: "16px", height: "16px" }}
               />
               Consistency
             </label>
 
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setActiveConfigColumn(null)}
-                style={{
-                  flex: 1,
-                  height: "40px",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#374151",
-                  background: "#fff",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 type="button"
                 onClick={handleSaveColumnConfig}
                 style={{
                   flex: 1,
-                  height: "40px",
-                  fontSize: "14px",
+                  height: "32px",
+                  fontSize: "13px",
                   fontWeight: 600,
                   color: "#fff",
                   background: "#111827",
                   border: "none",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   cursor: "pointer",
                 }}
               >
                 Apply
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveConfigColumn(null)}
+                style={{
+                  flex: 1,
+                  height: "32px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#374151",
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {showExportSuccess && (
         <div
