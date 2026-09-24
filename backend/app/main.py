@@ -36,10 +36,25 @@ app = FastAPI(
 )
 
 
-# Local development origins are always allowed. For a deployed
-# frontend (for example on Vercel), set CORS_ORIGINS on the backend
-# host to a comma-separated list, such as:
-#   CORS_ORIGINS=https://your-app.vercel.app
+# ============================================================
+# TEMPORARY DIAGNOSTIC — allow_origins=["*"]
+#
+# This is deliberately wide open so we can find out, with one
+# deploy, whether CORSMiddleware is working AT ALL on this
+# service. If the CORS error disappears with this in place, the
+# middleware is fine and the previous problem was specifically
+# the CORS_ORIGINS value not matching the frontend's origin.
+# If the CORS error is STILL there even with "*", something more
+# fundamental is wrong (this file isn't actually what's deployed,
+# the deploy didn't pick up the change, etc.) — tell Claude that
+# result and do not keep guessing at CORS_ORIGINS values.
+#
+# ONCE CONFIRMED WORKING: replace allow_origins=["*"] below with
+# the DEFAULT_ORIGINS + EXTRA_ORIGINS version (ask Claude to give
+# you that file back) — a real deployment should never allow every
+# origin in the world to call it with credentials enabled.
+# ============================================================
+
 DEFAULT_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -51,39 +66,20 @@ EXTRA_ORIGINS = [
     if origin.strip()
 ]
 
+logger.info(
+    "CORS_ORIGINS env var resolved to: %r",
+    EXTRA_ORIGINS,
+)
 
-# Replace your existing app.add_middleware(CORSMiddleware, ...) block with this:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://ownership-kum8ujcqs-akash-dabbaras-projects.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ============================================================
-# GLOBAL EXCEPTION HANDLER
-#
-# Any exception raised inside a route that ISN'T caught and turned
-# into an HTTPException would otherwise be handled by Starlette's
-# outermost error middleware, which sits OUTSIDE CORSMiddleware.
-# That response never gets an Access-Control-Allow-Origin header,
-# so the browser reports it as a CORS failure and hides the real
-# error entirely.
-#
-# Registering a handler here runs INSIDE the middleware stack
-# instead, so CORSMiddleware still gets to add its headers, and the
-# frontend sees an honest "Request failed with status 500" instead
-# of a misleading CORS error. The real exception is always logged
-# here so it's visible in this server's logs (the terminal locally,
-# or the Render service logs once deployed).
-# ============================================================
 
 @app.exception_handler(Exception)
 async def handle_unexpected_error(request: Request, exc: Exception):
