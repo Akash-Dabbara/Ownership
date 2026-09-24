@@ -65,6 +65,19 @@ class MySQLConnector(BaseConnector):
 
     def _connect(self, database_name: str | None = None):
         try:
+            # Check if an explicit ssl dictionary or ssl configuration was passed in config
+            ssl_config = self.config.get("ssl")
+            if ssl_config is True:
+                # Basic SSL enablement for cloud providers like Aiven
+                ssl_config = {"ssl": {"fake_flag_to_enable_ssl": True}}
+            elif not ssl_config and ("aiven" in self.config.get("host", "").lower() or self.config.get("port") not in {3306, None}):
+                # Auto-enable standard SSL context for cloud-hosted MySQL endpoints if not explicitly provided
+                import ssl
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                ssl_config = context
+
             return pymysql.connect(
                 host=self.config["host"],
                 port=self.config["port"],
@@ -73,10 +86,11 @@ class MySQLConnector(BaseConnector):
                 database=database_name,
                 connect_timeout=10,
                 cursorclass=pymysql.cursors.Cursor,
+                ssl=ssl_config if ssl_config else None,
             )
         except pymysql.MySQLError as exc:
             raise ConnectorOperationError(
-                "Unable to connect to the MySQL data source."
+                f"Unable to connect to the MySQL data source: {str(exc)}"
             ) from exc
 
     def test_connection(self) -> bool:
