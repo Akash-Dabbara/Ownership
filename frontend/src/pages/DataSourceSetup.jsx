@@ -71,34 +71,6 @@ const SOURCE_TYPES = [
       },
     ],
   },
-  {
-    value: "LOCAL_FILE",
-    label: "Local File / Storage",
-    testable: false,
-    fields: [
-      {
-        key: "path",
-        label: "Folder path on the server",
-        type: "text",
-        initial: "",
-        placeholder: "/var/data/files",
-      },
-    ],
-  },
-  {
-    value: "URL",
-    label: "URL Endpoint",
-    testable: false,
-    fields: [
-      {
-        key: "url",
-        label: "Endpoint URL",
-        type: "url",
-        initial: "",
-        placeholder: "https://example.com/data.csv",
-      },
-    ],
-  },
 ];
 
 function initialValuesFor(sourceTypeValue) {
