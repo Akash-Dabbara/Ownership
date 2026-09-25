@@ -58,6 +58,20 @@ const SOURCE_TYPES = [
     ],
   },
   {
+    value: "AZURE_BLOB",
+    label: "Azure Blob Storage",
+    testable: true,
+    fields: [
+      {
+        key: "connection_string",
+        label: "Connection string",
+        type: "password",
+        initial: "",
+        placeholder: "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net",
+      },
+    ],
+  },
+  {
     value: "LOCAL_FILE",
     label: "Local File / Storage",
     testable: false,

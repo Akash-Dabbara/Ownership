@@ -2,6 +2,7 @@ from app.connectors.postgresql import PostgreSQLConnector
 from app.connectors.mysql import MySQLConnector
 from app.connectors.snowflake import SnowflakeConnector
 from app.connectors.s3 import AWS3Connector
+from app.connectors.azure_blob import AzureBlobConnector
 from app.connectors.registry import ConnectorRegistry
 
 
@@ -17,3 +18,6 @@ def register_all_connectors() -> None:
 
     if not ConnectorRegistry.is_registered("AWS_S3"):
         ConnectorRegistry.register("AWS_S3", AWS3Connector)
+
+    if not ConnectorRegistry.is_registered("AZURE_BLOB"):
+        ConnectorRegistry.register("AZURE_BLOB", AzureBlobConnector)
