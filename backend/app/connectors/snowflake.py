@@ -345,6 +345,13 @@ class SnowflakeConnector(BaseConnector):
                 f"({create_columns_sql})"
             )
 
+            # Clear any existing rows so re-exporting to the same
+            # table name replaces its contents instead of appending
+            # underneath what's already there.
+            cursor.execute(
+                f'TRUNCATE TABLE "{database_name}"."{schema_name}"."{table_name}"'
+            )
+
             if rows:
                 insert_columns_sql = ", ".join(f'"{col}"' for col in columns)
                 placeholders_sql = ", ".join(["%s"] * len(columns))
