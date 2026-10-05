@@ -496,7 +496,6 @@ export default function DataIngestion() {
           )
         ) : isDatabaseSource ? (
           <div>
-            <h4>1. Select Database</h4>
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
               {visibleDatabases.map((db) => {
                 const isSelected = selectedDatabase === db;
@@ -518,13 +517,12 @@ export default function DataIngestion() {
             {selectedDatabase && (
               <div
                 style={{
-                  marginTop: "20px",
+                  marginTop: "16px",
                   marginLeft: "16px",
                   paddingLeft: "20px",
                   borderLeft: "2px solid #e5e7eb",
                 }}
               >
-                <h4>2. Select Schema</h4>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   {visibleSchemas.map((schema) => {
                     const isSelected = selectedSchema === schema;
@@ -546,13 +544,12 @@ export default function DataIngestion() {
                 {selectedSchema && (
                   <div
                     style={{
-                      marginTop: "20px",
+                      marginTop: "16px",
                       marginLeft: "16px",
                       paddingLeft: "20px",
                       borderLeft: "2px solid #e5e7eb",
                     }}
                   >
-                    <h4>3. Select Table</h4>
                     <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                       {visibleTables.map((table) => {
                         const isSelected = selectedTable === table;
