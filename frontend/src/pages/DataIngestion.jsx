@@ -17,6 +17,23 @@ const DATABASE_SOURCE_TYPES = ["POSTGRESQL", "MYSQL", "MSSQL", "SNOWFLAKE"];
 // Source types with no login/credential at all.
 const NO_CREDENTIAL_SOURCE_TYPES = ["LOCAL_FILE", "URL"];
 
+// Shared styling for the accordion's pick-one buttons at every
+// level (database, schema, table).
+function pickerButtonStyle(isSelected) {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: isSelected ? "2px solid #111827" : "1px solid #d1d5db",
+    background: isSelected ? "#111827" : "#fff",
+    color: isSelected ? "#fff" : "#111827",
+    cursor: "pointer",
+    fontSize: "14px",
+  };
+}
+
 export default function DataIngestion() {
   const navigate = useNavigate();
   const { workspaceId, fileGroupId } = useParams();
@@ -27,13 +44,18 @@ export default function DataIngestion() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isImporting, setIsImporting] = useState(false);
 
-  // Database-type source browsing state
+  // Database-type source browsing state. Each level holds the
+  // full list fetched for it, plus which single item (if any) is
+  // currently selected at that level. Once something is selected,
+  // the UI only renders that one item (the accordion "collapses"
+  // around it) and expands the next level underneath it. Selecting
+  // the same item again clears it and brings the full list back.
   const [databases, setDatabases] = useState([]);
   const [selectedDatabase, setSelectedDatabase] = useState("");
   const [schemas, setSchemas] = useState([]);
   const [selectedSchema, setSelectedSchema] = useState("");
   const [tables, setTables] = useState([]);
-  const [selectedTables, setSelectedTables] = useState([]);
+  const [selectedTable, setSelectedTable] = useState("");
 
   // File/URL-type source browsing state (folder-style paths, for S3 etc.)
   const [pathLevels, setPathLevels] = useState([]); // array of { label, options, selected }
@@ -161,15 +183,31 @@ export default function DataIngestion() {
   }
 
   // --------------------------------------------------------
-  // DATABASE -> SCHEMA -> TABLE FLOW
+  // DATABASE -> SCHEMA -> TABLE DRILL-DOWN
+  //
+  // Each handler toggles: clicking the already-selected item at
+  // that level clears it (and everything below it) and brings the
+  // full list at that level back. Clicking a different item
+  // selects it, clears anything chosen below it, and fetches the
+  // next level.
   // --------------------------------------------------------
 
   async function handleSelectDatabase(database) {
+    if (selectedDatabase === database) {
+      // Deselect — collapse back to showing every database again.
+      setSelectedDatabase("");
+      setSelectedSchema("");
+      setSelectedTable("");
+      setSchemas([]);
+      setTables([]);
+      return;
+    }
+
     try {
       setErrorMessage("");
       setSelectedDatabase(database);
       setSelectedSchema("");
-      setSelectedTables([]);
+      setSelectedTable("");
       setTables([]);
 
       const response = await browseConnectorChildren(
@@ -184,10 +222,19 @@ export default function DataIngestion() {
   }
 
   async function handleSelectSchema(schema) {
+    if (selectedSchema === schema) {
+      // Deselect — collapse back to showing every schema in this
+      // database again.
+      setSelectedSchema("");
+      setSelectedTable("");
+      setTables([]);
+      return;
+    }
+
     try {
       setErrorMessage("");
       setSelectedSchema(schema);
-      setSelectedTables([]);
+      setSelectedTable("");
 
       const response = await browseConnectorTables(
         workspace.data_source_credential_id,
@@ -200,12 +247,11 @@ export default function DataIngestion() {
     }
   }
 
-  function toggleTableSelection(table) {
-    setSelectedTables((current) =>
-      current.includes(table)
-        ? current.filter((t) => t !== table)
-        : [...current, table]
-    );
+  function handleSelectTable(table) {
+    // Toggling the same table deselects it; picking another table
+    // just swaps the selection — a single table is selected at a
+    // time, ready for the Import Data button.
+    setSelectedTable((current) => (current === table ? "" : table));
   }
 
   // --------------------------------------------------------
@@ -266,11 +312,13 @@ export default function DataIngestion() {
 
     try {
       const selections = isDatabaseSource
-        ? selectedTables.map((table) => ({
-            database_name: selectedDatabase,
-            schema_name: selectedSchema,
-            table_name: table,
-          }))
+        ? [
+            {
+              database_name: selectedDatabase,
+              schema_name: selectedSchema,
+              table_name: selectedTable,
+            },
+          ]
         : [
             {
               source_path: getSelectedFilePath(),
@@ -306,12 +354,26 @@ export default function DataIngestion() {
   }
 
   const canImport = isDatabaseSource
-    ? selectedTables.length > 0
+    ? Boolean(selectedTable)
     : Boolean(getSelectedFilePath());
 
   if (isLoading) {
     return <div className="loading-state">Loading data source...</div>;
   }
+
+  // Which databases/schemas/tables to actually render at each
+  // level: everything, until one is picked — then only that one.
+  const visibleDatabases = selectedDatabase
+    ? databases.filter((db) => db === selectedDatabase)
+    : databases;
+
+  const visibleSchemas = selectedSchema
+    ? schemas.filter((schema) => schema === selectedSchema)
+    : schemas;
+
+  const visibleTables = selectedTable
+    ? tables.filter((table) => table === selectedTable)
+    : tables;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -433,87 +495,83 @@ export default function DataIngestion() {
             </div>
           )
         ) : isDatabaseSource ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div>
-              <h4>1. Select Database</h4>
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                {databases.map((db) => (
+          <div>
+            <h4>1. Select Database</h4>
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              {visibleDatabases.map((db) => {
+                const isSelected = selectedDatabase === db;
+                return (
                   <button
                     key={db}
                     type="button"
                     onClick={() => handleSelectDatabase(db)}
-                    style={{
-                      padding: "10px 16px",
-                      borderRadius: "8px",
-                      border: selectedDatabase === db ? "2px solid #111827" : "1px solid #d1d5db",
-                      background: selectedDatabase === db ? "#111827" : "#fff",
-                      color: selectedDatabase === db ? "#fff" : "#111827",
-                      cursor: "pointer",
-                    }}
+                    style={pickerButtonStyle(isSelected)}
+                    title={isSelected ? "Click to change database" : undefined}
                   >
                     🗄️ {db}
+                    {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
             {selectedDatabase && (
-              <div>
+              <div
+                style={{
+                  marginTop: "20px",
+                  marginLeft: "16px",
+                  paddingLeft: "20px",
+                  borderLeft: "2px solid #e5e7eb",
+                }}
+              >
                 <h4>2. Select Schema</h4>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  {schemas.map((schema) => (
-                    <button
-                      key={schema}
-                      type="button"
-                      onClick={() => handleSelectSchema(schema)}
-                      style={{
-                        padding: "10px 16px",
-                        borderRadius: "8px",
-                        border: selectedSchema === schema ? "2px solid #111827" : "1px solid #d1d5db",
-                        background: selectedSchema === schema ? "#111827" : "#fff",
-                        color: selectedSchema === schema ? "#fff" : "#111827",
-                        cursor: "pointer",
-                      }}
-                    >
-                      📂 {schema}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedSchema && (
-              <div>
-                <h4>3. Select Table(s) — you can import more than one at a time</h4>
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  {tables.map((table) => {
-                    const isChecked = selectedTables.includes(table);
+                  {visibleSchemas.map((schema) => {
+                    const isSelected = selectedSchema === schema;
                     return (
-                      <label
-                        key={table}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "10px 16px",
-                          borderRadius: "8px",
-                          border: isChecked ? "2px solid #111827" : "1px solid #d1d5db",
-                          background: isChecked ? "#111827" : "#fff",
-                          color: isChecked ? "#fff" : "#111827",
-                          cursor: "pointer",
-                        }}
+                      <button
+                        key={schema}
+                        type="button"
+                        onClick={() => handleSelectSchema(schema)}
+                        style={pickerButtonStyle(isSelected)}
+                        title={isSelected ? "Click to change schema" : undefined}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleTableSelection(table)}
-                          style={{ cursor: "pointer" }}
-                        />
-                        📄 {table}
-                      </label>
+                        📂 {schema}
+                        {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
+                      </button>
                     );
                   })}
                 </div>
+
+                {selectedSchema && (
+                  <div
+                    style={{
+                      marginTop: "20px",
+                      marginLeft: "16px",
+                      paddingLeft: "20px",
+                      borderLeft: "2px solid #e5e7eb",
+                    }}
+                  >
+                    <h4>3. Select Table</h4>
+                    <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                      {visibleTables.map((table) => {
+                        const isSelected = selectedTable === table;
+                        return (
+                          <button
+                            key={table}
+                            type="button"
+                            onClick={() => handleSelectTable(table)}
+                            style={pickerButtonStyle(isSelected)}
+                            title={isSelected ? "Click to change table" : undefined}
+                          >
+                            📄 {table}
+                            {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
