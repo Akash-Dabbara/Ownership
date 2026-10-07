@@ -361,20 +361,6 @@ export default function DataIngestion() {
     return <div className="loading-state">Loading data source...</div>;
   }
 
-  // Which databases/schemas/tables to actually render at each
-  // level: everything, until one is picked — then only that one.
-  const visibleDatabases = selectedDatabase
-    ? databases.filter((db) => db === selectedDatabase)
-    : databases;
-
-  const visibleSchemas = selectedSchema
-    ? schemas.filter((schema) => schema === selectedSchema)
-    : schemas;
-
-  const visibleTables = selectedTable
-    ? tables.filter((table) => table === selectedTable)
-    : tables;
-
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       <TitleBanner
@@ -496,79 +482,94 @@ export default function DataIngestion() {
           )
         ) : isDatabaseSource ? (
           <div>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              {visibleDatabases.map((db) => {
-                const isSelected = selectedDatabase === db;
-                return (
+            {/* Breadcrumb: shows the path chosen so far. Each
+                segment is clickable — clicking it is the same as
+                deselecting that level, which clears it (and
+                whatever was chosen below it) and brings its list
+                back. Nothing is shown here until a database has
+                been picked. */}
+            {selectedDatabase && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "20px",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  color: "#111827",
+                }}
+              >
+                <span
+                  onClick={() => handleSelectDatabase(selectedDatabase)}
+                  style={{ cursor: "pointer" }}
+                  title="Click to change database"
+                >
+                  🗄️ {selectedDatabase}
+                </span>
+
+                {selectedSchema && (
+                  <>
+                    <span style={{ color: "#9ca3af", fontWeight: 400 }}>/</span>
+                    <span
+                      onClick={() => handleSelectSchema(selectedSchema)}
+                      style={{ cursor: "pointer" }}
+                      title="Click to change schema"
+                    >
+                      📂 {selectedSchema}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Exactly one of these three lists is visible at a
+                time: every database until one is picked, then
+                every schema inside it until one of those is
+                picked, then every table inside that schema. */}
+            {!selectedDatabase ? (
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {databases.map((db) => (
                   <button
                     key={db}
                     type="button"
                     onClick={() => handleSelectDatabase(db)}
-                    style={pickerButtonStyle(isSelected)}
-                    title={isSelected ? "Click to change database" : undefined}
+                    style={pickerButtonStyle(false)}
                   >
                     🗄️ {db}
-                    {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
                   </button>
-                );
-              })}
-            </div>
-
-            {selectedDatabase && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  marginLeft: "16px",
-                  paddingLeft: "20px",
-                  borderLeft: "2px solid #e5e7eb",
-                }}
-              >
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  {visibleSchemas.map((schema) => {
-                    const isSelected = selectedSchema === schema;
-                    return (
-                      <button
-                        key={schema}
-                        type="button"
-                        onClick={() => handleSelectSchema(schema)}
-                        style={pickerButtonStyle(isSelected)}
-                        title={isSelected ? "Click to change schema" : undefined}
-                      >
-                        📂 {schema}
-                        {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {selectedSchema && (
-                  <div
-                    style={{
-                      marginTop: "16px",
-                      marginLeft: "16px",
-                      paddingLeft: "20px",
-                      borderLeft: "2px solid #e5e7eb",
-                    }}
+                ))}
+              </div>
+            ) : !selectedSchema ? (
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {schemas.map((schema) => (
+                  <button
+                    key={schema}
+                    type="button"
+                    onClick={() => handleSelectSchema(schema)}
+                    style={pickerButtonStyle(false)}
                   >
-                    <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                      {visibleTables.map((table) => {
-                        const isSelected = selectedTable === table;
-                        return (
-                          <button
-                            key={table}
-                            type="button"
-                            onClick={() => handleSelectTable(table)}
-                            style={pickerButtonStyle(isSelected)}
-                            title={isSelected ? "Click to change table" : undefined}
-                          >
-                            📄 {table}
-                            {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                    📂 {schema}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {tables.map((table) => {
+                  const isSelected = selectedTable === table;
+                  return (
+                    <button
+                      key={table}
+                      type="button"
+                      onClick={() => handleSelectTable(table)}
+                      style={pickerButtonStyle(isSelected)}
+                      title={isSelected ? "Click to deselect" : undefined}
+                    >
+                      📄 {table}
+                      {isSelected && <span style={{ opacity: 0.8 }}>✕</span>}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
