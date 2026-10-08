@@ -64,6 +64,15 @@ export default function DataIngestion() {
   const [selectedLocalFile, setSelectedLocalFile] = useState(null);
   const [urlInput, setUrlInput] = useState("");
 
+  // Rename-before-import confirmation. Every import path (local
+  // file upload, URL, and database/path selection) routes through
+  // this same prompt before actually importing, so the user always
+  // gets a chance to rename the file/table or keep its original
+  // name. "type" records which of the three import paths to run
+  // once the user confirms.
+  const [pendingImportType, setPendingImportType] = useState(null);
+  const [importDisplayName, setImportDisplayName] = useState("");
+
   useEffect(() => {
     loadWorkspace();
   }, [workspaceId]);
@@ -115,12 +124,49 @@ export default function DataIngestion() {
   );
 
   // --------------------------------------------------------
+  // RENAME-BEFORE-IMPORT PROMPT
+  //
+  // Every import path opens this same confirmation first instead
+  // of importing immediately. It's pre-filled with the item's
+  // original name — the user can leave it as-is to import under
+  // the original name, or edit it to rename on the way in.
+  // --------------------------------------------------------
+
+  function openImportPrompt(type, defaultName) {
+    setPendingImportType(type);
+    setImportDisplayName(defaultName || "");
+  }
+
+  function closeImportPrompt() {
+    setPendingImportType(null);
+    setImportDisplayName("");
+  }
+
+  function confirmImportPrompt() {
+    const finalName = importDisplayName.trim();
+    const type = pendingImportType;
+
+    closeImportPrompt();
+
+    if (type === "local") {
+      performLocalFileImport(finalName);
+    } else if (type === "url") {
+      performUrlImport(finalName);
+    } else if (type === "selection") {
+      performSelectionImport(finalName);
+    }
+  }
+
+  // --------------------------------------------------------
   // LOCAL FILE UPLOAD / URL PASTE (no credential)
   // --------------------------------------------------------
 
-  async function handleLocalFileImport() {
+  function handleLocalFileImportClick() {
     if (!selectedLocalFile) return;
+    openImportPrompt("local", selectedLocalFile.name);
+  }
 
+  async function performLocalFileImport(displayName) {
     setErrorMessage("");
     setIsImporting(true);
 
@@ -129,7 +175,7 @@ export default function DataIngestion() {
         workspaceId,
         fileGroupId,
         selectedLocalFile,
-        selectedLocalFile.name,
+        displayName || selectedLocalFile.name,
         session.accessToken
       );
 
@@ -150,9 +196,20 @@ export default function DataIngestion() {
     }
   }
 
-  async function handleUrlImport() {
+  function handleUrlImportClick() {
     if (!urlInput.trim()) return;
 
+    const guessedName =
+      urlInput
+        .trim()
+        .split("/")
+        .filter(Boolean)
+        .pop() || "imported_data";
+
+    openImportPrompt("url", guessedName);
+  }
+
+  async function performUrlImport(displayName) {
     setErrorMessage("");
     setIsImporting(true);
 
@@ -161,7 +218,12 @@ export default function DataIngestion() {
         workspaceId,
         fileGroupId,
         null,
-        [{ source_path: urlInput.trim() }],
+        [
+          {
+            source_path: urlInput.trim(),
+            display_name: displayName || undefined,
+          },
+        ],
         session.accessToken
       );
 
@@ -306,7 +368,18 @@ export default function DataIngestion() {
   // IMPORT
   // --------------------------------------------------------
 
-  async function handleImportData() {
+  function handleImportClick() {
+    if (!canImport) return;
+
+    const defaultName = isDatabaseSource
+      ? selectedTable
+      : getSelectedFilePath().split("/").filter(Boolean).pop() ||
+        "imported_data";
+
+    openImportPrompt("selection", defaultName);
+  }
+
+  async function performSelectionImport(displayName) {
     setErrorMessage("");
     setIsImporting(true);
 
@@ -317,11 +390,13 @@ export default function DataIngestion() {
               database_name: selectedDatabase,
               schema_name: selectedSchema,
               table_name: selectedTable,
+              display_name: displayName || undefined,
             },
           ]
         : [
             {
               source_path: getSelectedFilePath(),
+              display_name: displayName || undefined,
             },
           ];
 
@@ -427,7 +502,7 @@ export default function DataIngestion() {
               />
               <button
                 type="button"
-                onClick={handleLocalFileImport}
+                onClick={handleLocalFileImportClick}
                 disabled={!selectedLocalFile || isImporting}
                 style={{
                   height: "48px",
@@ -463,7 +538,7 @@ export default function DataIngestion() {
               />
               <button
                 type="button"
-                onClick={handleUrlImport}
+                onClick={handleUrlImportClick}
                 disabled={!urlInput.trim() || isImporting}
                 style={{
                   height: "48px",
@@ -605,7 +680,7 @@ export default function DataIngestion() {
         {!isNoCredentialSource && (
           <button
             type="button"
-            onClick={handleImportData}
+            onClick={handleImportClick}
             disabled={!canImport || isImporting}
             style={{
               marginTop: "32px",
@@ -624,6 +699,95 @@ export default function DataIngestion() {
           </button>
         )}
       </div>
+
+      {pendingImportType && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(17, 24, 39, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#ffffff",
+              borderRadius: "20px",
+              padding: "36px",
+              boxShadow: "0 20px 48px rgba(17, 24, 39, 0.2)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: "8px" }}>
+              Name this {pendingImportType === "selection" && isDatabaseSource ? "table" : "file"}
+            </h3>
+            <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "20px" }}>
+              Keep the original name, or enter a different one to use inside
+              DataEase.
+            </p>
+
+            <input
+              type="text"
+              value={importDisplayName}
+              onChange={(e) => setImportDisplayName(e.target.value)}
+              autoFocus
+              style={{
+                width: "100%",
+                height: "48px",
+                padding: "0 16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "10px",
+                fontSize: "15px",
+                marginBottom: "24px",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                type="button"
+                onClick={confirmImportPrompt}
+                disabled={!importDisplayName.trim()}
+                style={{
+                  flex: 1,
+                  height: "48px",
+                  fontSize: "15px",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  background: importDisplayName.trim() ? "#111827" : "#9ca3af",
+                  border: "none",
+                  borderRadius: "10px",
+                  cursor: importDisplayName.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={closeImportPrompt}
+                style={{
+                  flex: 1,
+                  height: "48px",
+                  fontSize: "15px",
+                  fontWeight: 700,
+                  color: "#374151",
+                  background: "#ffffff",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

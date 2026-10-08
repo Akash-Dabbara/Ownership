@@ -324,29 +324,68 @@ export default function FilePreview() {
             ""
           )
         }
-        centerContent={
-          hasConfig && (
+        rightContent={
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {hasConfig && (
+                <button
+                  type="button"
+                  onClick={handleRunAnonymization}
+                  disabled={isAnonymizing}
+                  style={{
+                    height: "40px",
+                    padding: "0 20px",
+                    background: isAnonymizing ? "#9ca3af" : "#111827",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    cursor: isAnonymizing ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isAnonymizing ? "Anonymizing..." : "Run Anonymization"}
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleRunAnonymization}
-                disabled={isAnonymizing}
+                onClick={() => navigate(`/workspaces/${workspaceId}/file-groups/${fileGroupId}`)}
                 style={{
                   height: "40px",
-                  padding: "0 20px",
-                  background: isAnonymizing ? "#9ca3af" : "#111827",
-                  color: "#fff",
-                  border: "none",
+                  padding: "0 16px",
+                  border: "1px solid #d1d5db",
                   borderRadius: "8px",
+                  background: "#ffffff",
+                  color: "#374151",
                   fontSize: "14px",
                   fontWeight: "600",
-                  cursor: isAnonymizing ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                 }}
               >
-                {isAnonymizing ? "Anonymizing..." : "Run Anonymization"}
+                ← Back
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard")}
+                style={{
+                  height: "40px",
+                  padding: "0 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Home
+              </button>
+            </div>
 
-              {anonymizedRows !== null && (
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {hasConfig && anonymizedRows !== null && (
                 <label
                   style={{
                     display: "flex",
@@ -388,65 +427,25 @@ export default function FilePreview() {
                   </span>
                 </label>
               )}
-            </div>
-          )
-        }
-        rightContent={
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => navigate(`/workspaces/${workspaceId}/file-groups/${fileGroupId}`)}
-                style={{
-                  height: "40px",
-                  padding: "0 16px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                ← Back
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/dashboard")}
-                style={{
-                  height: "40px",
-                  padding: "0 16px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  background: "#ffffff",
-                  color: "#374151",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                Home
-              </button>
-            </div>
 
-            <select
-              value={rowLimit}
-              onChange={(e) => setRowLimit(Number(e.target.value))}
-              style={{
-                height: "36px",
-                padding: "0 12px",
-                borderRadius: "8px",
-                border: "1px solid #d1d5db",
-                fontSize: "14px",
-              }}
-            >
-              {ROW_COUNT_OPTIONS.map((count) => (
-                <option key={count} value={count}>
-                  Preview {count} rows
-                </option>
-              ))}
-            </select>
+              <select
+                value={rowLimit}
+                onChange={(e) => setRowLimit(Number(e.target.value))}
+                style={{
+                  height: "36px",
+                  padding: "0 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "14px",
+                }}
+              >
+                {ROW_COUNT_OPTIONS.map((count) => (
+                  <option key={count} value={count}>
+                    Preview {count} rows
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         }
       />
